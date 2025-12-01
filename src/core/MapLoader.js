@@ -12,7 +12,7 @@ export class MapLoader {
     async loadSceneModel() {
         return new Promise((resolve, reject) => {
             this.loader.load(
-                './assets/models/Scene2.glb',
+                '../assets/models/Scene2.glb',
                 (gltf) => {
                     this.sceneModel = gltf.scene;
                     
