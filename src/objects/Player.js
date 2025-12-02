@@ -385,6 +385,26 @@ export class Player {
             } else {
                 this.isOnGround = false;
             }
+            
+            // 위 방향 충돌 체크 (천장이나 경사진 판자 아래쪽)
+            if (this.velocityY > 0) {
+                const upDirection = new THREE.Vector3(0, 1, 0);
+                this.raycaster.set(this.camera.position, upDirection);
+                this.raycaster.far = this.playerHeight;
+                
+                const upIntersections = this.raycaster.intersectObjects(this.obstacles, true);
+                
+                if (upIntersections.length > 0) {
+                    const ceilingY = upIntersections[0].point.y;
+                    const playerTop = this.camera.position.y;
+                    
+                    // 천장에 머리를 부딪힌 경우
+                    if (playerTop >= ceilingY) {
+                        this.camera.position.y = ceilingY;
+                        this.velocityY = 0; // 점프 속도 제거
+                    }
+                }
+            }
         } else {
             // 장애물 없으면 단순 바닥 체크
             if (this.camera.position.y <= groundLevel) {
@@ -438,8 +458,31 @@ export class Player {
         if (moveVector.length() > 0) {
             const moveDirection = moveVector.clone().normalize();
             
+            // 목표 위치 계산
+            const targetPosition = this.camera.position.clone().add(moveVector);
+            
+            // 목표 위치에서 아래로 raycast해서 바닥 높이 확인
+            const downDirection = new THREE.Vector3(0, -1, 0);
+            this.raycaster.set(targetPosition, downDirection);
+            this.raycaster.far = this.playerHeight + 10;
+            
+            const groundCheck = this.raycaster.intersectObjects(this.obstacles, true);
+            
             // 이동 방향으로 충돌 체크
             if (!this.checkCollision(moveDirection)) {
+                // 바닥 높이 확인
+                if (groundCheck.length > 0) {
+                    const groundY = groundCheck[0].point.y;
+                    const maxClimbHeight = 0.5; // 최대 올라갈 수 있는 높이 (계단)
+                    const currentGroundY = this.camera.position.y - this.playerHeight;
+                    
+                    // 너무 높은 곳은 올라가지 못함
+                    if (groundY - currentGroundY > maxClimbHeight) {
+                        // 충돌로 간주하여 이동 취소
+                        return;
+                    }
+                }
+                
                 this.camera.position.add(moveVector);
             } else {
                 // 충돌시 X, Z 축 각각 시도 (미끄러짐 방지)

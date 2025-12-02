@@ -1,11 +1,18 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
 export class MapLoader {
     constructor(scene) {
         this.scene = scene;
         this.obstacles = [];
         this.loader = new GLTFLoader();
+        
+        // Draco 압축 지원
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+        this.loader.setDRACOLoader(dracoLoader);
+        
         this.sceneModel = null;
     }
 
@@ -13,27 +20,24 @@ export class MapLoader {
         return new Promise((resolve, reject) => {
             // GitHub Pages는 Git LFS를 지원하지 않으므로
             // 로컬에서는 상대 경로, GitHub Pages에서는 Git LFS media URL 사용
-            const isGitHubPages = window.location.hostname.includes('github.io');
+            // ?test=github 파라미터로 로컬에서 GitHub 환경 테스트 가능
+            const urlParams = new URLSearchParams(window.location.search);
+            const isGitHubPages = window.location.hostname.includes('github.io') || urlParams.get('test') === 'github';
             const modelPath = isGitHubPages
-                ? 'https://media.githubusercontent.com/media/kangwoo100/final_project/main/spotlight-game/assets/models/Scene2.glb'
-                : '../assets/models/Scene2.glb';
+                ? 'https://media.githubusercontent.com/media/kangwoo100/final_project/main/assets/models/Scene1.glb'
+                : '../assets/models/Scene1.glb';
             
-            console.log(`Loading model from: ${modelPath}`);
+            console.log(`Loading model from: ${modelPath} (GitHub mode: ${isGitHubPages})`);
             
             this.loader.load(
                 modelPath,
                 (gltf) => {
                     this.sceneModel = gltf.scene;
-                    // 그림자 설정 및 충돌 오브젝트 수집 (성능 최적화)
+                    // 그림자 설정 및 충돌 오브젝트 수집
                     this.sceneModel.traverse((child) => {
                         if (child.isMesh) {
-                            // 큰 오브젝트만 그림자 캐스트
-                            const scale = child.scale.length();
-                            if (scale > 1) {
-                                child.castShadow = true;
-                            } else {
-                                child.castShadow = false;
-                            }
+                            // 모든 메시가 그림자를 드리우고 받도록 설정
+                            child.castShadow = true;
                             child.receiveShadow = true;
                             
                             // 재질이 MeshStandardMaterial인지 확인하고 조명을 받도록 설정

@@ -148,9 +148,6 @@ class Game {
         requestAnimationFrame(() => this.animate());
 
         const delta = this.clock.getDelta();
-        
-        // EventManager 큐 처리
-        this.eventManager.processQueue();
 
         // 업데이트
         if (this.gameManager.isPlaying()) {
