@@ -1,35 +1,49 @@
 import * as THREE from 'three';
 import { Item } from '../objects/Item.js';
+import { GameConfig } from '../config/GameConfig.js';
 
 /**
  * ItemManager 클래스 - 아이템 생성 및 수집 관리
  */
 export class ItemManager {
-    constructor(scene) {
+    constructor(scene, eventManager) {
         this.scene = scene;
+        this.eventManager = eventManager;
         this.items = [];
         this.collectedCount = 0;
-        this.totalItems = 3;
+        this.totalItems = GameConfig.GAME.TOTAL_ITEMS;
         
-        // 아이템 생성
-        this.createItems();
+        // 게임 시작 시 아이템 생성
+        this.setupEvents();
+    }
+    
+    setupEvents() {
+        // 게임 시작 시 아이템 생성
+        this.eventManager.on(GameConfig.EVENTS.GAME_START, () => {
+            this.createItems();
+        }, this);
+        
+        // 게임 재시작 시 아이템 재생성
+        this.eventManager.on(GameConfig.EVENTS.GAME_RESTART, () => {
+            this.reset();
+            this.createItems();
+        }, this);
     }
     
     /**
-     * 아이템 생성 (기본 위치에 3개)
+     * 아이템 생성 (설정 파일의 위치 사용)
      */
     createItems() {
-        // 아이템 위치들 (맵에 맞게 조정 필요)
-        const itemPositions = [
-            new THREE.Vector3(5, 1, 5),
-            new THREE.Vector3(-5, 1, -5),
-            new THREE.Vector3(8, 1, -8)
-        ];
+        // 기존 아이템 제거
+        this.dispose();
         
-        itemPositions.forEach((pos, index) => {
-            const item = new Item(this.scene, pos, index);
+        GameConfig.ITEM_POSITIONS.forEach((pos, index) => {
+            const position = new THREE.Vector3(pos.x, pos.y, pos.z);
+            const item = new Item(this.scene, position, index);
             this.items.push(item);
         });
+        
+        console.log(`Created ${this.items.length} items`);
     }
     
     /**
@@ -66,6 +80,14 @@ export class ItemManager {
         if (item) {
             item.collect();
             this.collectedCount++;
+            
+            // 아이템 수집 이벤트 발생
+            this.eventManager.emit(GameConfig.EVENTS.ITEM_COLLECTED, {
+                index: item.index,
+                collected: this.collectedCount,
+                total: this.totalItems
+            });
+            
             return true;
         }
         
@@ -88,6 +110,14 @@ export class ItemManager {
             total: this.totalItems,
             percentage: (this.collectedCount / this.totalItems) * 100
         };
+    }
+    
+    /**
+     * 아이템 상태 초기화
+     */
+    reset() {
+        this.dispose();
+        this.collectedCount = 0;
     }
     
     /**

@@ -1,12 +1,46 @@
-import { GameState } from '../core/GameManager.js';
+import { GameConfig } from '../config/GameConfig.js';
+
+const GameState = GameConfig.STATE;
 
 export class HUD {
-    constructor(player, gameManager, itemManager) {
+    constructor(player, gameManager, itemManager, eventManager) {
         this.player = player;
         this.gameManager = gameManager;
         this.itemManager = itemManager;
+        this.eventManager = eventManager;
         
         this.createHUD();
+        this.setupEvents();
+    }
+    
+    setupEvents() {
+        // 상태 변경 이벤트 구독
+        this.eventManager.on(GameConfig.EVENTS.STATE_CHANGED, (data) => {
+            this.onStateChanged(data);
+        }, this);
+        
+        // 리사이즈 이벤트 구독
+        this.eventManager.on('renderer:resize', () => {
+            this.onResize();
+        }, this);
+    }
+    
+    onStateChanged(data) {
+        const { newState } = data;
+        
+        // 인트로 화면 처리
+        if (newState === GameState.INTRO) {
+            this.introScreen.style.display = 'flex';
+        } else {
+            this.introScreen.style.display = 'none';
+        }
+        
+        // 게임오버 화면 처리
+        if (newState === GameState.GAMEOVER) {
+            this.gameOverScreen.style.display = 'flex';
+        } else {
+            this.gameOverScreen.style.display = 'none';
+        }
     }
 
     createHUD() {
@@ -177,39 +211,33 @@ export class HUD {
     update() {
         const state = this.gameManager.getState();
 
-        // 인트로 화면
-        this.introScreen.style.display = 
-            state === GameState.INTRO ? 'flex' : 'none';
-
-        // 게임오버 화면
-        this.gameOverScreen.style.display = 
-            state === GameState.GAMEOVER ? 'flex' : 'none';
-
-        // 게임 플레이 중 HUD
+        // 게임 플레이 중 HUD만 업데이트 (상태 변경은 이벤트로 처리됨)
         if (state === GameState.PLAYING) {
             // 스테미나 업데이트
             const staminaPercent = this.player.getStaminaPercent();
             this.staminaBar.style.width = `${staminaPercent * 100}%`;
             
+            const config = GameConfig.HUD.STAMINA_BAR;
             // 스테미나 색상 변경
-            if (staminaPercent < 0.2) {
-                this.staminaBar.style.backgroundColor = '#ff0000';
-            } else if (staminaPercent < 0.5) {
-                this.staminaBar.style.backgroundColor = '#ffff00';
+            if (staminaPercent < config.THRESHOLD_LOW) {
+                this.staminaBar.style.backgroundColor = config.COLOR_LOW;
+            } else if (staminaPercent < config.THRESHOLD_MED) {
+                this.staminaBar.style.backgroundColor = config.COLOR_MED;
             } else {
-                this.staminaBar.style.backgroundColor = '#00ff00';
+                this.staminaBar.style.backgroundColor = config.COLOR_HIGH;
             }
 
             // 아이템 카운터
             const progress = this.itemManager.getProgress();
             this.itemCounter.textContent = `📦 Items: ${progress.collected}/${progress.total}`;
             
+            const itemConfig = GameConfig.HUD.ITEM_COUNTER;
             // 아이템 수집 시 색상 변화
             if (progress.collected === progress.total) {
-                this.itemCounter.style.borderColor = '#4af626';
-                this.itemCounter.style.color = '#4af626';
+                this.itemCounter.style.borderColor = itemConfig.COLLECTED_COLOR;
+                this.itemCounter.style.color = itemConfig.COLLECTED_COLOR;
             } else {
-                this.itemCounter.style.borderColor = '#ffd700';
+                this.itemCounter.style.borderColor = itemConfig.BORDER_COLOR;
                 this.itemCounter.style.color = 'white';
             }
 
@@ -218,8 +246,9 @@ export class HUD {
                 this.detectionWarning.style.display = 'block';
                 // 깜빡임 효과
                 const time = Date.now();
+                const blinkSpeed = GameConfig.HUD.DETECTION_WARNING.BLINK_SPEED;
                 this.detectionWarning.style.opacity = 
-                    Math.sin(time * 0.01) * 0.5 + 0.5;
+                    Math.sin(time * blinkSpeed) * 0.5 + 0.5;
             } else {
                 this.detectionWarning.style.display = 'none';
             }

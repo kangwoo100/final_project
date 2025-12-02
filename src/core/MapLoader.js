@@ -11,11 +11,19 @@ export class MapLoader {
 
     async loadSceneModel() {
         return new Promise((resolve, reject) => {
+            // GitHub Pages는 Git LFS를 지원하지 않으므로
+            // 로컬에서는 상대 경로, GitHub Pages에서는 Git LFS media URL 사용
+            const isGitHubPages = window.location.hostname.includes('github.io');
+            const modelPath = isGitHubPages
+                ? 'https://media.githubusercontent.com/media/kangwoo100/final_project/main/spotlight-game/assets/models/Scene2.glb'
+                : '../assets/models/Scene2.glb';
+            
+            console.log(`Loading model from: ${modelPath}`);
+            
             this.loader.load(
-                '../assets/models/Scene2.glb',
+                modelPath,
                 (gltf) => {
                     this.sceneModel = gltf.scene;
-                    
                     // 그림자 설정 및 충돌 오브젝트 수집 (성능 최적화)
                     this.sceneModel.traverse((child) => {
                         if (child.isMesh) {
@@ -28,6 +36,21 @@ export class MapLoader {
                             }
                             child.receiveShadow = true;
                             
+                            // 재질이 MeshStandardMaterial인지 확인하고 조명을 받도록 설정
+                            if (child.material) {
+                                if (Array.isArray(child.material)) {
+                                    child.material.forEach(mat => {
+                                        if (mat.isMeshStandardMaterial || mat.isMeshPhysicalMaterial) {
+                                            mat.needsUpdate = true;
+                                        }
+                                    });
+                                } else {
+                                    if (child.material.isMeshStandardMaterial || child.material.isMeshPhysicalMaterial) {
+                                        child.material.needsUpdate = true;
+                                    }
+                                }
+                            }
+                            
                             // 충돌 체크용 오브젝트 리스트에 추가
                             this.obstacles.push(child);
                         }
@@ -37,6 +60,14 @@ export class MapLoader {
                     console.log('Scene model loaded successfully');
                     console.log('Model:', this.sceneModel);
                     console.log('Collision objects:', this.obstacles.length);
+                    
+                    // 디버그: 메시 재질 정보 출력
+                    this.sceneModel.traverse((child) => {
+                        if (child.isMesh && child.material) {
+                            console.log(`Mesh: ${child.name}, Material type: ${child.material.type}, Position Y: ${child.position.y.toFixed(2)}`);
+                        }
+                    });
+                    
                     resolve(this.sceneModel);
                 },
                 (progress) => {

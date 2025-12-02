@@ -6,12 +6,18 @@ import { MapLoader } from './core/MapLoader.js';
 import { LightingManager } from './core/LightingManager.js';
 import { ItemManager } from './core/ItemManager.js';
 import { HUD } from './ui/HUD.js';
+import { EventManager } from './core/EventManager.js';
+import { RendererManager } from './core/RendererManager.js';
+import { GameConfig } from './config/GameConfig.js';
 
 class Game {
     constructor() {
+        // Core managers (의존성 주입 순서 중요)
+        this.eventManager = new EventManager();
+        this.rendererManager = new RendererManager(this.eventManager);
+        
         this.scene = new THREE.Scene();
         this.camera = null;
-        this.renderer = null;
         this.player = null;
         this.spotlight = null;
         this.gameManager = null;
@@ -22,27 +28,12 @@ class Game {
         // 조명 매니저
         this.lightingManager = null;
         
-        // 게임 상태
-        this.isGameWon = false;
-        
         this.init();
     }
 
     async init() {
-        // 렌더러 설정 (성능 최적화)
-        this.renderer = new THREE.WebGLRenderer({ 
-            antialias: true,
-            powerPreference: "high-performance"
-        });
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // 픽셀 비율 제한
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        this.renderer.setClearColor(0x000000);
-        document.body.appendChild(this.renderer.domElement);
-        
         // 조명 매니저 초기화 (게임 모드)
-        this.lightingManager = new LightingManager(this.scene, this.renderer);
+        this.lightingManager = new LightingManager(this.scene, this.rendererManager.getRenderer());
         this.lightingManager.setupGameMode();
 
         // 맵 로드 (비동기)
@@ -50,72 +41,60 @@ class Game {
         await mapLoader.createBasicMap();
 
         // 플레이어 생성 (맵의 충돌 오브젝트 전달)
-        this.player = new Player(this.scene, this.camera, this.renderer, mapLoader.getObstacles());
+        this.player = new Player(this.scene, this.camera, this.rendererManager.getRenderer(), mapLoader.getObstacles());
         this.camera = this.player.camera;
+        
+        // RendererManager에 카메라 설정
+        this.rendererManager.setScene(this.scene);
+        this.rendererManager.setCamera(this.camera);
 
-        // 스포트라이트 생성 (새로운 config 기반 생성)
+        // 스포트라이트 생성 (GameConfig 사용)
+        const spotConfig = GameConfig.SPOTLIGHT;
         this.spotlight = new Spotlight(this.scene, this.player, {
             obstacles: mapLoader.getObstacles(),
-            startPosition: new THREE.Vector3(0, 5, 0),
-            height: 5,
-            angle: Math.PI / 12, 
-            intensity: 300,
-            distance: 30,
-            moveSpeed: 2.0,  
-            chaseSpeed: 3.5, 
-            normalColor: 0xffffff,
-            alertColor: 0xff0000,
-            acceleration: 15.0,
-            damping: 0.92,
-            enableConeVisualization: true
+            startPosition: new THREE.Vector3(
+                spotConfig.START_POSITION.x,
+                spotConfig.START_POSITION.y,
+                spotConfig.START_POSITION.z
+            ),
+            height: spotConfig.HEIGHT,
+            angle: spotConfig.ANGLE,
+            intensity: spotConfig.INTENSITY,
+            distance: spotConfig.DISTANCE,
+            moveSpeed: spotConfig.MOVE_SPEED,
+            chaseSpeed: spotConfig.CHASE_SPEED,
+            normalColor: spotConfig.NORMAL_COLOR,
+            alertColor: spotConfig.ALERT_COLOR,
+            acceleration: spotConfig.ACCELERATION,
+            damping: spotConfig.DAMPING,
+            enableConeVisualization: spotConfig.ENABLE_CONE_VISUALIZATION
         });
-        
-        // 여러 개의 스포트라이트를 추가하는 예시:
-        // this.spotlights = [];
-        // 
-        // // 첫 번째 스포트라이트 (빠르고 좁은 범위)
-        // this.spotlights.push(new Spotlight(this.scene, this.player, {
-        //     obstacles: mapLoader.getObstacles(),
-        //     startPosition: new THREE.Vector3(10, 8, 0),
-        //     angle: Math.PI / 16,
-        //     moveSpeed: 3.0,
-        //     chaseSpeed: 5.0,
-        //     normalColor: 0xffffff,
-        //     alertColor: 0xff0000
-        // }));
-        // 
-        // // 두 번째 스포트라이트 (느리고 넓은 범위)
-        // this.spotlights.push(new Spotlight(this.scene, this.player, {
-        //     obstacles: mapLoader.getObstacles(),
-        //     startPosition: new THREE.Vector3(-10, 8, 0),
-        //     angle: Math.PI / 8,
-        //     moveSpeed: 1.5,
-        //     chaseSpeed: 2.5,
-        //     normalColor: 0x00ffff,
-        //     alertColor: 0xffff00
-        // }));
-        // 
-        // // 모든 스포트라이트 활성화
-        // this.spotlights.forEach(spot => spot.activate());
 
-        // 게임 매니저
-        this.gameManager = new GameManager(this.scene, this.player, this.spotlight);
-        
-        // 아이템 매니저
-        this.itemManager = new ItemManager(this.scene);
+        // 아이템 매니저 (EventManager 주입)
+        this.itemManager = new ItemManager(this.scene, this.eventManager);
         this.player.setItemManager(this.itemManager);
 
-        // HUD
-        this.hud = new HUD(this.player, this.gameManager, this.itemManager);
+        // 게임 매니저 (EventManager 주입)
+        this.gameManager = new GameManager(this.eventManager, this.player, this.spotlight);
 
-        // 이벤트 리스너
-        window.addEventListener('resize', () => this.onWindowResize());
+        // HUD (EventManager 주입)
+        this.hud = new HUD(this.player, this.gameManager, this.itemManager, this.eventManager);
+        
+        // 게임 이벤트 구독
+        this.setupGameEvents();
         
         // 모드 토글 버튼 설정
         this.setupModeToggle();
         
         // 게임 시작
         this.animate();
+    }
+    
+    setupGameEvents() {
+        // 게임 승리 이벤트
+        this.eventManager.on(GameConfig.EVENTS.GAME_WIN, () => {
+            this.showWinScreen();
+        }, this);
     }
     
     setupModeToggle() {
@@ -165,17 +144,13 @@ class Game {
         document.body.appendChild(button);
     }
 
-    onWindowResize() {
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.hud.onResize();
-    }
-
     animate() {
         requestAnimationFrame(() => this.animate());
 
         const delta = this.clock.getDelta();
+        
+        // EventManager 큐 처리
+        this.eventManager.processQueue();
 
         // 업데이트
         if (this.gameManager.isPlaying()) {
@@ -183,18 +158,12 @@ class Game {
             this.spotlight.update(delta);
             this.gameManager.update(delta);
             this.itemManager.update(delta);
-            
-            // 아이템 수집 완료 체크
-            if (!this.isGameWon && this.itemManager.isAllCollected()) {
-                this.isGameWon = true;
-                this.showWinScreen();
-            }
         }
 
         this.hud.update();
 
-        // 렌더링
-        this.renderer.render(this.scene, this.camera);
+        // 렌더링 (RendererManager 사용)
+        this.rendererManager.render();
     }
     
     showWinScreen() {
@@ -222,9 +191,6 @@ class Game {
             <div style="font-size: 18px; margin-top: 30px; color: #aaa;">게임 클리어!</div>
         `;
         document.body.appendChild(winScreen);
-        
-        // 게임 일시정지
-        this.gameManager.pause();
     }
 }
 

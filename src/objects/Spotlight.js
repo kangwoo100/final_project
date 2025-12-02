@@ -43,8 +43,8 @@ export class Spotlight {
         const intensity = config.intensity !== undefined ? config.intensity : 300;
         const distance = config.distance !== undefined ? config.distance : 30;
         
-        // penumbra를 높여서 경계를 부드럽게 (0.2 -> 0.5), decay도 증가 (1.5 -> 2.0)
-        this.light = new THREE.SpotLight(this.normalColor, intensity, distance, angle, 0.5, 2.0);
+        // penumbra를 높여서 경계를 부드럽게, decay는 1.0으로 설정 (플랫폼도 밝게)
+        this.light = new THREE.SpotLight(this.normalColor, intensity, distance, angle, 0.5, 1.0);
         
         const startPos = config.startPosition || new THREE.Vector3(0, this.lightHeight, 0);
         this.light.position.copy(startPos);
@@ -145,6 +145,27 @@ export class Spotlight {
         );
         this.lightCone.rotation.x = 0;  // 기본적으로 아래를 향함
         this.scene.add(this.lightCone);
+        
+        // 바닥 원형 시각화 추가
+        const circleGeometry = new THREE.CircleGeometry(radius, 32);
+        const circleMaterial = new THREE.MeshBasicMaterial({
+            map: texture,
+            color: this.normalColor,
+            transparent: true,
+            opacity: 0.5,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+        });
+        
+        this.groundCircle = new THREE.Mesh(circleGeometry, circleMaterial);
+        this.groundCircle.rotation.x = -Math.PI / 2; // 바닥에 수평으로
+        this.groundCircle.position.set(
+            this.light.position.x,
+            0.01, // 바닥보다 살짝 위
+            this.light.position.z
+        );
+        this.scene.add(this.groundCircle);
     }
     
     /**
@@ -158,6 +179,11 @@ export class Spotlight {
             this.lightCone.geometry.dispose();
             this.lightCone.material.dispose();
         }
+        if (this.groundCircle) {
+            this.scene.remove(this.groundCircle);
+            this.groundCircle.geometry.dispose();
+            this.groundCircle.material.dispose();
+        }
     }
     
     /**
@@ -167,6 +193,9 @@ export class Spotlight {
         this.light.position.set(x, y, z);
         if (this.lightCone) {
             this.lightCone.position.set(x, y / 2, z);
+        }
+        if (this.groundCircle) {
+            this.groundCircle.position.set(x, 0.01, z);
         }
     }
     
@@ -180,6 +209,9 @@ export class Spotlight {
             if (this.lightCone) {
                 this.lightCone.material.color.setHex(color);
             }
+            if (this.groundCircle) {
+                this.groundCircle.material.color.setHex(color);
+            }
         }
     }
     
@@ -191,10 +223,15 @@ export class Spotlight {
         this.baseAngle = angle;
         
         // 원뿔 크기 업데이트
+        const radius = Math.tan(angle) * this.lightHeight;
         if (this.lightCone) {
-            const radius = Math.tan(angle) * this.lightHeight;
             this.lightCone.geometry.dispose();
             this.lightCone.geometry = new THREE.ConeGeometry(radius, this.lightHeight, 32, 1, true);
+        }
+        // 바닥 원 크기 업데이트
+        if (this.groundCircle) {
+            this.groundCircle.geometry.dispose();
+            this.groundCircle.geometry = new THREE.CircleGeometry(radius, 32);
         }
     }
     
@@ -283,6 +320,20 @@ export class Spotlight {
                 this.isAlerted ? this.alertColor : this.normalColor
             );
         }
+        
+        // 바닥 원 위치 및 색상 동기화
+        if (this.groundCircle) {
+            this.groundCircle.position.set(
+                this.light.position.x,
+                0.01,
+                this.light.position.z
+            );
+            
+            // 색상 업데이트
+            this.groundCircle.material.color.setHex(
+                this.isAlerted ? this.alertColor : this.normalColor
+            );
+        }
 
         // 플레이어 감지
         this.detectPlayer(delta);
@@ -332,16 +383,26 @@ export class Spotlight {
         const playerPos = this.player.getPosition();
         const lightPos = this.light.position;
         
-        // 스포트라이트 범위 내에 있는지 확인
-        const horizontalDist = Math.sqrt(
-            Math.pow(playerPos.x - lightPos.x, 2) +
-            Math.pow(playerPos.z - lightPos.z, 2)
-        );
+        // 광원에서 플레이어로 향하는 벡터
+        const toPlayer = new THREE.Vector3().subVectors(playerPos, lightPos);
+        const distance = toPlayer.length();
+        const direction = toPlayer.clone().normalize();
         
-        const maxRadius = Math.tan(this.light.angle) * lightPos.y;
+        // 스포트라이트가 향하는 방향 벡터 (항상 아래: (0, -1, 0))
+        const spotDirection = new THREE.Vector3(0, -1, 0);
+        
+        // 두 벡터 사이의 각도 계산 (내적 이용)
+        // cos(θ) = A · B / (|A| × |B|)
+        // 정규화된 벡터끼리의 내적이므로 cos(θ) = A · B
+        const cosAngle = direction.dot(spotDirection);
+        const angleToPlayer = Math.acos(cosAngle);
+        
+        // 스포트라이트의 반각(half angle)과 비교
+        // spotlight.angle은 전체 원뿔의 각도이므로 반으로 나눔
+        const halfAngle = this.light.angle;
         
         // 범위 밖이면 즉시 return
-        if (horizontalDist >= maxRadius) {
+        if (angleToPlayer > halfAngle) {
             // 빛 밖으로 나감
             if (this.isAlerted) {
                 this.escapeTime += delta;
@@ -359,12 +420,6 @@ export class Spotlight {
         }
 
         // 범위 안에 있으면 가림 체크 (Raycasting)
-        const direction = new THREE.Vector3()
-            .subVectors(playerPos, lightPos)
-            .normalize();
-        
-        const distance = lightPos.distanceTo(playerPos);
-        
         // 스포트라이트에서 플레이어로 광선 발사
         this.raycaster.set(lightPos, direction);
         this.raycaster.far = distance;
