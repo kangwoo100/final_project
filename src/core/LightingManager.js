@@ -191,13 +191,13 @@ export class LightingManager {
         this.scene.fog = new THREE.FogExp2(0x000000, 0.045);
         
         // 환경광
-        const ambient = new THREE.AmbientLight(0x404060, 0.4);
+        const ambient = new THREE.AmbientLight(0x404060, 0.6);
         this.addLight('환경광 (Ambient)', ambient, {
-            maxIntensity: 2
+            maxIntensity: 3
         });
         
         // 점광원 1
-        const point1 = new THREE.PointLight(0x6677cc, 10, 20);
+        const point1 = new THREE.PointLight(0x6677cc, 5, 20);
         point1.position.set(0, 5, 0);
         point1.castShadow = true;
         point1.shadow.mapSize.width = 512;

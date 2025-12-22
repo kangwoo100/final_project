@@ -24,6 +24,7 @@ export class Spotlight {
     constructor(scene, player, config = {}) {
         this.scene = scene;
         this.player = player;
+        this.eventManager = config.eventManager;
         
         // 설정 값 (기본값 설정)
         this.obstacles = config.obstacles || [];
@@ -169,7 +170,7 @@ export class Spotlight {
     }
     
     /**
-     * 스포트라이트 제거 (여러 스포트라이트 관리 시 유용)
+     * 스포트라이트 제거
      */
     dispose() {
         this.scene.remove(this.light);
@@ -307,7 +308,7 @@ export class Spotlight {
             this.light.position.z
         );
 
-        // 원뿔 위치 동기화 (항상 아래를 향하므로 회전은 필요 없음)
+        // 원뿔 위치 동기화
         if (this.lightCone) {
             this.lightCone.position.set(
                 this.light.position.x,
@@ -338,8 +339,6 @@ export class Spotlight {
         // 플레이어 감지
         this.detectPlayer(delta);
 
-        // Helper 업데이트 (주석 처리)
-        // if (this.helper) this.helper.update();
     }
 
     patrolUpdate(delta) {
@@ -448,7 +447,7 @@ export class Spotlight {
             this.escapeTime = 0;
             this.player.setInSpotlight(true);
             
-            if (this.detectionTime > 0.5 && !this.isAlerted) {
+            if (this.detectionTime > 0.3 && !this.isAlerted) {
                 // 경보 발동
                 this.setAlert(true);
             }
@@ -475,7 +474,12 @@ export class Spotlight {
 
     onPlayerCaught() {
         console.log('GAME OVER - Player caught!');
-        // TODO: 점프스케어 및 게임오버 처리
+        
+        // 게임오버 이벤트 발생
+        if (this.eventManager) {
+            this.eventManager.emit('player:detected');
+        }
+        
         this.detectionTime = 0;
     }
 

@@ -18,9 +18,7 @@ export class MapLoader {
 
     async loadSceneModel() {
         return new Promise((resolve, reject) => {
-            // GitHub Pages는 Git LFS를 지원하지 않으므로
-            // 로컬에서는 상대 경로, GitHub Pages에서는 Git LFS media URL 사용
-            // ?test=github 파라미터로 로컬에서 GitHub 환경 테스트 가능
+            // github에 파일 경로 문제 해결
             const urlParams = new URLSearchParams(window.location.search);
             const isGitHubPages = window.location.hostname.includes('github.io') || urlParams.get('test') === 'github';
             const modelPath = isGitHubPages
@@ -89,89 +87,11 @@ export class MapLoader {
 
     async createBasicMap() {
         // GLTF 씬 모델 로드
-        try {
-            await this.loadSceneModel();
-        } catch (error) {
-            console.warn('Failed to load scene model, creating basic map instead');
-            this.createFallbackMap();
-        }
+        await this.loadSceneModel();
 
         // 그리드 헬퍼 (개발용)
         const gridHelper = new THREE.GridHelper(50, 50);
         this.scene.add(gridHelper);
-    }
-
-    createFallbackMap() {
-        // 바닥
-        const floorGeometry = new THREE.PlaneGeometry(50, 50);
-        const floorMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x333333,
-            roughness: 0.8,
-            metalness: 0.2
-        });
-        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-        floor.rotation.x = -Math.PI / 2;
-        floor.receiveShadow = true;
-        this.scene.add(floor);
-
-        // 벽 (경계)
-        this.createWalls();
-
-        // 장애물 (숨을 수 있는 곳)
-        this.createObstacles();
-    }
-
-    createWalls() {
-        const wallMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x222222,
-            roughness: 0.9
-        });
-        const wallHeight = 5;
-        const wallThickness = 0.5;
-        const mapSize = 50;
-
-        // 4개의 벽
-        const walls = [
-            { pos: [0, wallHeight/2, -mapSize/2], size: [mapSize, wallHeight, wallThickness] },
-            { pos: [0, wallHeight/2, mapSize/2], size: [mapSize, wallHeight, wallThickness] },
-            { pos: [-mapSize/2, wallHeight/2, 0], size: [wallThickness, wallHeight, mapSize] },
-            { pos: [mapSize/2, wallHeight/2, 0], size: [wallThickness, wallHeight, mapSize] },
-        ];
-
-        walls.forEach(wall => {
-            const geometry = new THREE.BoxGeometry(...wall.size);
-            const mesh = new THREE.Mesh(geometry, wallMaterial);
-            mesh.position.set(...wall.pos);
-            mesh.receiveShadow = true;
-            mesh.castShadow = true;
-            this.scene.add(mesh);
-        });
-    }
-
-    createObstacles() {
-        const obstacleMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x8B4513,
-            roughness: 0.7
-        });
-
-        // 책상 같은 장애물들
-        const obstacles = [
-            { pos: [5, 0.5, 0], size: [3, 1, 1.5] },
-            { pos: [-5, 0.5, 5], size: [2, 1, 2] },
-            { pos: [8, 0.5, -8], size: [2.5, 1, 1] },
-            { pos: [-8, 1, -5], size: [1.5, 2, 1.5] },
-            { pos: [0, 0.75, -10], size: [4, 1.5, 1] },
-        ];
-
-        obstacles.forEach(obs => {
-            const geometry = new THREE.BoxGeometry(...obs.size);
-            const mesh = new THREE.Mesh(geometry, obstacleMaterial);
-            mesh.position.set(...obs.pos);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            this.scene.add(mesh);
-            this.obstacles.push(mesh);
-        });
     }
 
     getObstacles() {

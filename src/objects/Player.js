@@ -22,13 +22,6 @@ export class Player {
         this.rotationX = 0; // 상하 회전 (pitch)
         this.rotationY = 0; // 좌우 회전 (yaw)
         this.mouseSensitivity = 0.002; // 마우스 감도
-        
-        // 플레이어 충돌 박스 (보이지 않음)
-        const geometry = new THREE.BoxGeometry(0.6, 1.8, 0.6);
-        const material = new THREE.MeshBasicMaterial({ visible: false });
-        this.collider = new THREE.Mesh(geometry, material);
-        this.collider.position.copy(this.camera.position);
-        scene.add(this.collider);
 
         // 충돌 감지용 Raycaster
         this.raycaster = new THREE.Raycaster();
@@ -37,13 +30,13 @@ export class Player {
         // 이동 관련
         this.velocity = new THREE.Vector3();
         this.direction = new THREE.Vector3();
-        this.moveSpeed = 4.0;
-        this.sprintSpeed = 6.0;
+        this.moveSpeed = 3.0;
+        this.sprintSpeed = 5.0;
         this.isMoving = false;
         
         // 중력과 점프
         this.gravity = -20.0;  // 중력 가속도
-        this.jumpVelocity = 7.0;  // 점프 속도
+        this.jumpVelocity = 8.0;  // 점프 속도
         this.velocityY = 0;  // 수직 속도
         this.isOnGround = true;  // 바닥에 있는지 여부 (시작은 true)
         this.minY = 0;  // 최소 높이 (바닥)
@@ -328,7 +321,6 @@ export class Player {
         
         // 충돌 없이 바로 이동
         this.camera.position.add(moveVector);
-        this.collider.position.copy(this.camera.position);
     }
     
     updateGameMode(delta) {
@@ -497,9 +489,6 @@ export class Player {
                 }
             }
         }
-
-        // 충돌 박스 위치 업데이트
-        this.collider.position.copy(this.camera.position);
     }
     
     getPosition() {

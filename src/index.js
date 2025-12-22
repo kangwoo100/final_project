@@ -51,6 +51,7 @@ class Game {
         // 스포트라이트 생성 (GameConfig 사용)
         const spotConfig = GameConfig.SPOTLIGHT;
         this.spotlight = new Spotlight(this.scene, this.player, {
+            eventManager: this.eventManager,
             obstacles: mapLoader.getObstacles(),
             startPosition: new THREE.Vector3(
                 spotConfig.START_POSITION.x,
@@ -80,9 +81,6 @@ class Game {
         // HUD (EventManager 주입)
         this.hud = new HUD(this.player, this.gameManager, this.itemManager, this.eventManager);
         
-        // 게임 이벤트 구독
-        this.setupGameEvents();
-        
         // 모드 토글 버튼 설정
         this.setupModeToggle();
         
@@ -90,12 +88,7 @@ class Game {
         this.animate();
     }
     
-    setupGameEvents() {
-        // 게임 승리 이벤트
-        this.eventManager.on(GameConfig.EVENTS.GAME_WIN, () => {
-            this.showWinScreen();
-        }, this);
-    }
+
     
     setupModeToggle() {
         // 버튼 생성
@@ -161,33 +154,6 @@ class Game {
 
         // 렌더링 (RendererManager 사용)
         this.rendererManager.render();
-    }
-    
-    showWinScreen() {
-        // 승리 화면 표시
-        const winScreen = document.createElement('div');
-        winScreen.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
-            color: #4af626;
-            padding: 40px 60px;
-            border: 3px solid #4af626;
-            border-radius: 15px;
-            font-size: 32px;
-            font-weight: bold;
-            text-align: center;
-            z-index: 2000;
-            box-shadow: 0 0 30px rgba(74, 246, 38, 0.5);
-        `;
-        winScreen.innerHTML = `
-            <div>🎉 축하합니다! 🎉</div>
-            <div style="font-size: 24px; margin-top: 20px;">모든 아이템을 수집했습니다!</div>
-            <div style="font-size: 18px; margin-top: 30px; color: #aaa;">게임 클리어!</div>
-        `;
-        document.body.appendChild(winScreen);
     }
 }
 

@@ -41,6 +41,13 @@ export class HUD {
         } else {
             this.gameOverScreen.style.display = 'none';
         }
+        
+        // 게임 클리어 화면 처리
+        if (newState === GameState.WIN) {
+            this.gameClearScreen.style.display = 'flex';
+        } else {
+            this.gameClearScreen.style.display = 'none';
+        }
     }
 
     createHUD() {
@@ -71,6 +78,9 @@ export class HUD {
 
         // 게임오버 화면
         this.createGameOverScreen();
+        
+        // 게임 클리어 화면
+        this.createGameClearScreen();
     }
 
     createStaminaBar() {
@@ -192,11 +202,12 @@ export class HUD {
         this.gameOverScreen.style.pointerEvents = 'auto';
 
         const title = document.createElement('h1');
-        title.textContent = 'GAME OVER';
-        title.style.fontSize = '64px';
+        title.textContent = 'FAIL';
+        title.style.fontSize = '128px';
         title.style.marginBottom = '30px';
         title.style.color = '#ff0000';
-        title.style.textShadow = '4px 4px 8px black';
+        title.style.textShadow = '6px 6px 12px black';
+        title.style.fontWeight = 'bold';
 
         const restart = document.createElement('p');
         restart.textContent = 'Press R to restart';
@@ -206,6 +217,38 @@ export class HUD {
         this.gameOverScreen.appendChild(title);
         this.gameOverScreen.appendChild(restart);
         this.container.appendChild(this.gameOverScreen);
+    }
+
+    createGameClearScreen() {
+        this.gameClearScreen = document.createElement('div');
+        this.gameClearScreen.style.position = 'absolute';
+        this.gameClearScreen.style.top = '0';
+        this.gameClearScreen.style.left = '0';
+        this.gameClearScreen.style.width = '100%';
+        this.gameClearScreen.style.height = '100%';
+        this.gameClearScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+        this.gameClearScreen.style.display = 'none';
+        this.gameClearScreen.style.flexDirection = 'column';
+        this.gameClearScreen.style.justifyContent = 'center';
+        this.gameClearScreen.style.alignItems = 'center';
+        this.gameClearScreen.style.pointerEvents = 'auto';
+
+        const title = document.createElement('h1');
+        title.textContent = 'Game Clear';
+        title.style.fontSize = '128px';
+        title.style.marginBottom = '30px';
+        title.style.color = '#00ff00';
+        title.style.textShadow = '6px 6px 12px black';
+        title.style.fontWeight = 'bold';
+
+        const restart = document.createElement('p');
+        restart.textContent = 'Press R to restart';
+        restart.style.fontSize = '24px';
+        restart.style.color = '#ffffff';
+
+        this.gameClearScreen.appendChild(title);
+        this.gameClearScreen.appendChild(restart);
+        this.container.appendChild(this.gameClearScreen);
     }
 
     update() {
